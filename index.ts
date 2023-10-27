@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import morgan from 'morgan';
 import userRoute from "./src/routes/user-route";
+import postRoute from "./src/routes/post-route";
 
 const app: Express = express();
 const port = process.env.PORT || 8000;
@@ -22,7 +23,8 @@ app.get('/', (req: Request, res: Response) => {
   res.send('Welcome to Fotobook');
 });
 
-app.use('/api/user',userRoute);
+app.use('/api/users', userRoute);
+app.use('/api/posts', postRoute);
 
 
 app.listen(port, () => {

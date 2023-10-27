@@ -1,10 +1,11 @@
 export default interface IUser {
-    id?: string;
-    firstName?: string,
-    lastName?: string,
-    email: string,
-    password: string,
+    id?: String;
+    firstName?: String,
+    lastName?: String,
+    email: String,
+    password: String,
+    avatar?: String | '',
     dob?: Date,
-    sex?: 'male' | 'female' ;
-    refreshToken?: string
+    sex?: 'male' | 'female',
+    refreshToken?: String
 }

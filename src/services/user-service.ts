@@ -37,7 +37,7 @@ class UserService {
 
             const recordUser= await neo4j.run(
                 `CREATE (n:User{id:'${id}',lastName: $lastName,firstName: $firstName,email:$email,
-                password: $password, dob: $dob, sex: $sex, refreshToken: ''}) RETURN n`,
+                password: $password, avatar: '', dob: $dob, sex: $sex, refreshToken: ''}) RETURN n`,
                 userInfor
             )
            
@@ -87,7 +87,7 @@ class UserService {
             {
                 
                 let user = getValue(recordUser.records[0])
-                const result = await brycpt.compare(password, user?.password);
+                const result = await brycpt.compare(String(password), user?.password);
                 if(result)
                 {
                     user.password='hidden';

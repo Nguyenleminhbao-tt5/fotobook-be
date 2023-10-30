@@ -6,6 +6,7 @@ import { IResponse } from "../interfaces/response-interface";
 class AuthenMiddleware {
   static authenMiddleware = async (req: Request, res: Response, next: NextFunction) => {
     try{
+
         let token: any;
         if (req?.headers?.authorization?.startsWith("Bearer")) 
         {
@@ -30,11 +31,14 @@ class AuthenMiddleware {
                 
             }
         }
-        res.status(200).json({
-            type: "Error",
-            code: 400,
-            message: "No token in headers"
-        } as IResponse);
+        else{
+            res.status(200).json({
+                type: "Error",
+                code: 400,
+                message: "No token in headers"
+            } as IResponse);
+        }
+        
         
        
     }

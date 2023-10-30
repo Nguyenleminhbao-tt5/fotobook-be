@@ -2,9 +2,10 @@ import neo4j from "../utils/connect-neo4j";
 import IUser from "../models/user-model";
 import { IResponse } from "../interfaces/response-interface";
 import jwt, { JwtPayload } from "jsonwebtoken";
-import getValue from "../utils/get-value";
+import getValue from "../helpers/get-value";
 import brycpt from "bcrypt";
 import generateUniqueId from "generate-unique-id";
+
 
 
 
@@ -36,12 +37,12 @@ class UserService {
               });
 
             const recordUser= await neo4j.run(
-                `CREATE (n:User{id:'${id}',lastName: $lastName,firstName: $firstName,email:$email,
+                `CREATE (n:User{user_id:'${id}',lastName: $lastName,firstName: $firstName,email:$email,
                 password: $password, avatar: '', dob: $dob, sex: $sex, refreshToken: ''}) RETURN n`,
                 userInfor
             )
-           
-            const newUser = getValue(recordUser.records[0])
+
+            const newUser = await getValue(recordUser.records[0])
             
             if (newUser)
             {
@@ -86,7 +87,7 @@ class UserService {
             if (recordUser && recordUser.records.length ==1)
             {
                 
-                let user = getValue(recordUser.records[0])
+                let user = await getValue(recordUser.records[0])
                 const result = await brycpt.compare(String(password), user?.password);
                 if(result)
                 {
@@ -144,9 +145,7 @@ class UserService {
             const refreshToken = jwt.sign({ id}, `${process.env.JWT_SECRET_KEY}`, {
                 expiresIn: "3d",
             });
-            const a= await neo4j.run(`MATCH (n:User{id: "${id}"}) SET n.refreshToken= '${refreshToken}' RETURN n`);
-            console.log(refreshToken)
-            console.log(getValue(a.records[0]).refreshToken);
+            const a= await neo4j.run(`MATCH (n:User{user_id: "${id}"}) SET n.refreshToken= '${refreshToken}' RETURN n`);
             return refreshToken;
         }
         catch(err){

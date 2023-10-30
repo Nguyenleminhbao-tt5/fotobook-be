@@ -1,5 +1,5 @@
 export default interface IUser {
-    id?: String;
+    user_id?: String;
     firstName?: String,
     lastName?: String,
     email: String,

@@ -7,7 +7,7 @@ const router= Router();
 router.use(AuthenMiddleware.authenMiddleware);
 
 router.get('/', PostController.getAllPost);
-router.post('/', PostController.createPost);
+router.post('/',PostController.createPost);
 router.get('/:post_id', PostController.getPost);
 router.put('/:post_id', PostController.updatePost);
 router.delete('/:post_id', PostController.deletePost);

@@ -14,7 +14,7 @@ class UserController {
                    let response = await UserService.createUser({firstName, lastName,email, password:hash,dob,sex})
                    if(response && response.type=='Success')
                    {
-                    const user_id= response.message.id; 
+                    const user_id= response.message.user_id; 
                     const refreshToken= await UserService.generateRefreshToken(user_id)
                     res.cookie("refreshToken", refreshToken, {
                         httpOnly: true,

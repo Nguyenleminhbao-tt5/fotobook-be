@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import bcrypt from "bcrypt";
 import UserService from "../services/user-service";
+import { StatusCodes } from "http-status-codes";
 
 class UserController {
     static createUser= async (req: Request, res: Response, next: NextFunction)=>
@@ -84,6 +85,17 @@ class UserController {
         } 
         catch (errr) {
             next(errr);
+        }
+    }
+
+    static follow = async (req: Request, res: Response, next: NextFunction)=>{
+        try{
+            const {follower_id, following_id} = req.body;
+            const response = await UserService.follow(follower_id, following_id);
+            res.status(StatusCodes.OK).json(response);
+        }
+        catch(err){
+            next(err);
         }
     }
 

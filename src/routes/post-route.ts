@@ -6,14 +6,11 @@ const router= Router();
 
 router.use(AuthenMiddleware.authenMiddleware);
 
-router.get('/', PostController.getAllPost);
+router.get('/', PostController.getAllPost); // add user_id to check user liked post 
 router.post('/',PostController.createPost);
+router.post('/like', PostController.likePost);
 router.get('/:post_id', PostController.getPost);
 router.put('/:post_id', PostController.updatePost);
 router.delete('/:post_id', PostController.deletePost);
-
-
-
-
 
 export default router;

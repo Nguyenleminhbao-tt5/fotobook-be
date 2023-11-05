@@ -8,5 +8,6 @@ router.post('/sign-up',UserController.createUser);
 router.post('/login',UserController.loginUser);
 router.get('/test',AuthenMiddleware.authenMiddleware,UserController.test);
 router.post('/refresh-access-token',UserController.refreshAccessToken);
+router.post('/follow',UserController.follow)
 
 export default router;

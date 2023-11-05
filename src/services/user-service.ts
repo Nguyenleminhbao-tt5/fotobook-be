@@ -5,6 +5,8 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 import getValue from "../helpers/get-value";
 import brycpt from "bcrypt";
 import generateUniqueId from "generate-unique-id";
+import {StatusCodes} from "http-status-codes";
+import checkFollow from "../helpers/check-follow";
 
 
 
@@ -98,7 +100,7 @@ class UserService {
                         code: 200,
                         message: {
                             ...user,
-                            accessToken: UserService.generateAccessToken(user.id)
+                            accessToken: UserService.generateAccessToken(user.user_id)
                         }
                     }
                     
@@ -129,7 +131,7 @@ class UserService {
 
     static generateAccessToken = (id:String) : String => {
         try{
-            return jwt.sign({ id}, `${process.env.JWT_SECRET_KEY}`, {
+            return jwt.sign({id}, `${process.env.JWT_SECRET_KEY}`, {
                 expiresIn: "1d",
             });
         }
@@ -187,6 +189,57 @@ class UserService {
         }
        
     };
+
+    static follow = async (follower_id: String, following_id: String)=>{
+        try{
+            if( follower_id == "" || following_id == "" )
+            {
+                return {
+                    type: 'Error',
+                    code: StatusCodes.BAD_REQUEST,
+                    message: 'Error follow'
+                } as IResponse;
+            }
+
+            const recordFollow = await neo4j.run(checkFollow(follower_id,following_id));
+
+            console.log(recordFollow.records[0].get('action'))
+
+            if( recordFollow && recordFollow.records.length > 0 )
+            {
+                if ( recordFollow.records[0].get('action'))
+                {
+                    return {
+                        type: 'Success',
+                        code: StatusCodes.OK,
+                        message: "Follow user successfully"
+                    } as IResponse;
+                }
+                else {
+                    return {
+                        type: 'Success',
+                        code: StatusCodes.OK,
+                        message: "Unfollow user successfully"
+                    } as IResponse;
+                }
+               
+            }
+            else {
+                return {
+                    type: 'Error',
+                    code: StatusCodes.BAD_REQUEST,
+                    message: 'User not found'
+                } as IResponse;
+            }
+        }
+        catch(err){
+            return {
+                type: 'Error',
+                code: StatusCodes.BAD_REQUEST,
+                message: 'Follow user failed'
+            } as IResponse
+        }
+    }
 
 
 }

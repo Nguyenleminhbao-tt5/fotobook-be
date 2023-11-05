@@ -3,8 +3,12 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 import { IResponse } from "../interfaces/response-interface";
 
 
+export interface UserRequest extends Request {
+    user_id?: string;
+  }
+
 class AuthenMiddleware {
-  static authenMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+  static authenMiddleware = async (req: UserRequest, res: Response, next: NextFunction) => {
     try{
 
         let token: any;
@@ -14,10 +18,12 @@ class AuthenMiddleware {
             if(token)
             {   
                 try{
-                    await jwt.verify(
+                    const decode = await jwt.verify(
                         token,
                         `${process.env.JWT_SECRET_KEY}`
                     ) as JwtPayload;
+                    
+                    req.user_id = decode.id
                     next();
                 }
                 catch(err)

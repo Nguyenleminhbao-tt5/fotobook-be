@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import bcrypt from "bcrypt";
 import UserService from "../services/user-service";
 import { StatusCodes } from "http-status-codes";
+import { UserRequest } from "../middlewares/authen-middleware";
 
 class UserController {
     static createUser= async (req: Request, res: Response, next: NextFunction)=>
@@ -13,19 +14,10 @@ class UserController {
                 if (hash)
                 {
                    let response = await UserService.createUser({firstName, lastName,email, password:hash,dob,sex})
-                   if(response && response.type=='Success')
-                   {
-                    const user_id= response.message.user_id; 
-                    const refreshToken= await UserService.generateRefreshToken(user_id)
-                    res.cookie("refreshToken", refreshToken, {
-                        httpOnly: true,
-                        maxAge: 72 * 60 * 60 * 1000,
-                      });
-                   }
-                   res.status(200).json(response);                   
+                   res.status(StatusCodes.OK).json(response);                   
                 }
                 else{
-                    res.status(200).json(
+                    res.status(StatusCodes.OK).json(
                         {
                             type: 'Error',
                             code: 404,
@@ -45,16 +37,7 @@ class UserController {
         try{
             let {email, password} = req.body;
             const response = await UserService.loginUser({email, password}); 
-            if(response && response.type=='Success')
-            {
-                const user_id= response.message.id; 
-                const refreshToken= await UserService.generateRefreshToken(user_id)
-                res.cookie("refreshToken", refreshToken, {
-                    httpOnly: true,
-                    maxAge: 72 * 60 * 60 * 1000,
-                    });
-            }
-            res.status(200).json(response); 
+            res.status(StatusCodes.OK).json(response); 
         }
         catch(err)
         {
@@ -62,17 +45,46 @@ class UserController {
         }
     }
 
-    static test = async (req: Request, res: Response, next: NextFunction)=>{
-        res.status(200).json({
-            message: "Test successful"
-        })
+    static getFollower = async (req: UserRequest, res: Response, next: NextFunction)=>{
+
+        try{
+            const user_id : string = req.user_id ? req.user_id : '';
+            const response = await UserService.getFollower(user_id);
+            res.status(StatusCodes.OK).json(response)
+        }
+        catch(err){
+            next(err);
+        }
+    }
+
+    static getFollowing = async (req: UserRequest, res: Response, next: NextFunction)=>{
+
+        try{
+            const user_id : string = req.user_id ? req.user_id : '';
+            const response = await UserService.getFollowing(user_id);
+            res.status(StatusCodes.OK).json(response)
+        }
+        catch(err){
+            next(err);
+        }
+    }
+
+    static getFriend = async (req: UserRequest, res: Response, next: NextFunction)=>{
+        try{
+            const user_id : string = req.user_id ? req.user_id : '';
+            const response = await UserService.getFriend(user_id);
+            res.status(StatusCodes.OK).json(response)
+        }
+        catch(err){
+
+        }
     }
 
     static refreshAccessToken = async (req: Request, res: Response, next: NextFunction)=>{
         try {
             let refreshToken = req.body.refreshToken;
             const response = UserService.verifyRefreshToken(refreshToken);
-            if(response) res.status(200).json(response)
+            if(response) res.status(StatusCodes.OK).json(response)
             
             res.status(200).json(
                 {
@@ -88,13 +100,27 @@ class UserController {
         }
     }
 
-    static follow = async (req: Request, res: Response, next: NextFunction)=>{
+    static follow = async (req: UserRequest, res: Response, next: NextFunction)=>{
         try{
-            const {follower_id, following_id} = req.body;
+            const {follower_id} = req.body;
+            const following_id : string = req.user_id ? req.user_id : '';
             const response = await UserService.follow(follower_id, following_id);
             res.status(StatusCodes.OK).json(response);
         }
         catch(err){
+            next(err);
+        }
+    }
+
+    static getUserByToken = async (req: Request, res: Response, next: NextFunction)=>{
+        try{
+            const {token}= req.params;
+            const response = await UserService.getUserByToken(token);
+            res.status(StatusCodes.OK).json(response);
+
+        }
+        catch(err)
+        {
             next(err);
         }
     }

@@ -6,8 +6,12 @@ const router = Router();
 
 router.post('/sign-up',UserController.createUser);
 router.post('/login',UserController.loginUser);
-router.get('/test',AuthenMiddleware.authenMiddleware,UserController.test);
+router.get('/follower',AuthenMiddleware.authenMiddleware,UserController.getFollower);
+router.get('/following',AuthenMiddleware.authenMiddleware,UserController.getFollowing);
+router.get('/friends', AuthenMiddleware.authenMiddleware, UserController.getFriend);
+router.post('/follow',AuthenMiddleware.authenMiddleware,UserController.follow);
 router.post('/refresh-access-token',UserController.refreshAccessToken);
-router.post('/follow',UserController.follow)
+router.get('/:token', UserController.getUserByToken)
+
 
 export default router;

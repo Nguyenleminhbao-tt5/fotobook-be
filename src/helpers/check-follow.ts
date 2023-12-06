@@ -6,7 +6,7 @@ const checkFollow = (follower_id: String, following_id: String) :String=>{
     MATCH (follower:User {user_id: "${follower_id}"})
     MATCH (following:User {user_id: "${following_id}"})
     
-    OPTIONAL MATCH (follower)-[follow:FOLLOW]->(following)
+    OPTIONAL MATCH (following)-[follow:FOLLOW]->(follower)
     
     WITH follower, following, CASE
       WHEN follow IS NOT NULL THEN true
@@ -15,8 +15,8 @@ const checkFollow = (follower_id: String, following_id: String) :String=>{
     
     CALL apoc.do.when(
       isFollowing,
-      'MATCH (follower)-[follow:FOLLOW]->(following) DELETE follow RETURN false AS action',
-      'MERGE (follower)-[:FOLLOW]->(following) RETURN true AS action',
+      'MATCH (following)-[follow:FOLLOW]->(follower) DELETE follow RETURN false AS action',
+      'MERGE (following)-[:FOLLOW]->(follower) RETURN true AS action',
       {follower: follower, following: following}
     ) YIELD value
     
@@ -25,3 +25,5 @@ const checkFollow = (follower_id: String, following_id: String) :String=>{
 }
 
 export default checkFollow;
+
+

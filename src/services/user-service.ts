@@ -7,6 +7,7 @@ import brycpt from "bcrypt";
 import generateUniqueId from "generate-unique-id";
 import {StatusCodes} from "http-status-codes";
 import checkFollow from "../helpers/check-follow";
+import getList from "../helpers/get-list";
 
 
 
@@ -19,7 +20,7 @@ class UserService {
             {
                 return {
                     type: 'Error',
-                    code: 400,
+                    code: StatusCodes.BAD_REQUEST,
                     message: 'Invalid input error'
                 }
             } 
@@ -28,7 +29,7 @@ class UserService {
             {
                 return {
                     type: 'Error',
-                    code: 400,
+                    code: StatusCodes.BAD_REQUEST,
                     message: 'Email already exists'
                 }
             }
@@ -49,12 +50,13 @@ class UserService {
             if (newUser)
             {
                 newUser.password='hidden';
-                newUser.refreshToken='hidden';
+                const refreshToken= await UserService.generateRefreshToken(id)
                 return {
                     type: 'Success',
-                    code: 200,
+                    code: StatusCodes.OK,
                     message: {
                         ...newUser,
+                        refreshToken,
                         accessToken: UserService.generateAccessToken(id)
                     }
                 }
@@ -62,7 +64,7 @@ class UserService {
             
             return {
                 type: 'Error',
-                code: 500,
+                code: StatusCodes.INTERNAL_SERVER_ERROR,
                 message: 'Server error'
             }
         }
@@ -81,7 +83,7 @@ class UserService {
             {
                 return {
                     type: 'Error',
-                    code: 400,
+                    code: StatusCodes.BAD_REQUEST,
                     message: 'Account does not exist'
                 }
             }
@@ -90,16 +92,18 @@ class UserService {
             {
                 
                 let user = await getValue(recordUser.records[0])
+                const refreshToken= await UserService.generateRefreshToken(user.user_id)
                 const result = await brycpt.compare(String(password), user?.password);
                 if(result)
                 {
                     user.password='hidden';
-                    user.refreshToken='hidden';
+                    //user.refreshToken='hidden';
                     return {
                         type: 'Success',
-                        code: 200,
+                        code: StatusCodes.OK,
                         message: {
                             ...user,
+                            refreshToken,
                             accessToken: UserService.generateAccessToken(user.user_id)
                         }
                     }
@@ -109,7 +113,7 @@ class UserService {
                 else {
                     return {
                         type: 'Error',
-                        code: 400,
+                        code: StatusCodes.BAD_REQUEST,
                         message: 'The wrong password'
                     }
                 }
@@ -117,7 +121,7 @@ class UserService {
             }
             return {
                 type: 'Error',
-                code: 500,
+                code: StatusCodes.INTERNAL_SERVER_ERROR,
                 message: 'Server error'
             }
 
@@ -147,7 +151,7 @@ class UserService {
             const refreshToken = jwt.sign({ id}, `${process.env.JWT_SECRET_KEY}`, {
                 expiresIn: "3d",
             });
-            const a= await neo4j.run(`MATCH (n:User{user_id: "${id}"}) SET n.refreshToken= '${refreshToken}' RETURN n`);
+            await neo4j.run(`MATCH (n:User{user_id: "${id}"}) SET n.refreshToken= '${refreshToken}' RETURN n`);
             return refreshToken;
         }
         catch(err){
@@ -166,7 +170,7 @@ class UserService {
                   ) as JwtPayload;
                   return {
                     type: "Success",
-                    code: 200,
+                    code: StatusCodes.OK,
                     message: {
                         accessToken: UserService.generateAccessToken(decoded.id)
                     }
@@ -175,7 +179,7 @@ class UserService {
             
             return {
                 type: 'Error',
-                code: 400,
+                code: StatusCodes.BAD_REQUEST,
                 message: "No token provided"
             }
             
@@ -183,12 +187,86 @@ class UserService {
         catch(err){
             return {
                 type: 'Error',
-                code: 400,
+                code: StatusCodes.BAD_REQUEST,
                 message: "Invalid refresh token"
             }
         }
        
     };
+
+    static getFollower = async (user_id: string)=>{
+        try{
+
+            const recordFollowers = await neo4j.run(
+                `MATCH (me:User {user_id: '${user_id}'}) 
+                MATCH (user)-[:FOLLOW]->(me) 
+                WHERE NOT (me)-[:FOLLOW]->(user) 
+                RETURN user`
+            )
+
+            const users  = await getList(recordFollowers.records,'user');
+            return {
+                type: 'Success',
+                code: StatusCodes.OK,
+                message: {
+                    follower: users
+                }
+            }
+        }
+        catch(err){
+            throw err;
+        }
+    }
+
+    static getFollowing = async (user_id: string)=>{
+        try{
+
+            const recordFollowings = await neo4j.run(
+                `MATCH (me:User {user_id: '${user_id}'}) 
+                MATCH (me)-[:FOLLOW]->(user) 
+                WHERE NOT (user)-[:FOLLOW]->(me) 
+                RETURN user`
+            )
+
+            const users  = await getList(recordFollowings.records,'user');
+            return {
+                type: 'Success',
+                code: StatusCodes.OK,
+                message: {
+                    following: users
+                }
+            }
+            
+        }
+        catch(err){
+            throw err;
+        }
+    }
+
+    static getFriend = async (user_id: string)=>{
+        try{
+
+            const recordFollowings = await neo4j.run(
+                `MATCH (me:User {user_id: '${user_id}'}) 
+                MATCH (user)-[:FOLLOW]->(me) 
+                MATCH (me)-[:FOLLOW]->(user) 
+                RETURN user`
+            )
+
+            const users  = await getList(recordFollowings.records,'user');
+            return {
+                type: 'Success',
+                code: StatusCodes.OK,
+                message: {
+                    friends: users
+                }
+            }
+            
+        }
+        catch(err){
+            throw err;
+        }
+    }
 
     static follow = async (follower_id: String, following_id: String)=>{
         try{
@@ -238,6 +316,44 @@ class UserService {
                 code: StatusCodes.BAD_REQUEST,
                 message: 'Follow user failed'
             } as IResponse
+        }
+    }
+
+    static getUserByToken=  async (token: string)=>{
+        try{
+            if(token){
+                const decoded = jwt.verify(
+                    token,
+                    `${process.env.JWT_SECRET_KEY}`
+                  ) as JwtPayload;
+                const userRecord = await neo4j.run(
+                    `MATCH (user: User {user_id: "${decoded.id}"}) RETURN user`
+                )
+                
+                const user = getValue(userRecord.records[0], 'user'); 
+
+                return {
+                    type: "Success",
+                    code: StatusCodes.OK,
+                    message: {
+                        ...user
+                    }
+                };
+            }
+            
+            return {
+                type: 'Error',
+                code: StatusCodes.BAD_REQUEST,
+                message: "No token provided"
+            }
+            
+        }
+        catch(err){
+            return {
+                type: 'Error',
+                code: StatusCodes.BAD_REQUEST,
+                message: "Invalid refresh token"
+            }
         }
     }
 

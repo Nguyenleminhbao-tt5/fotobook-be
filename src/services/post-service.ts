@@ -6,13 +6,17 @@ import getList from "../helpers/get-list";
 import { IResponse } from "../interfaces/response-interface";
 import {StatusCodes} from "http-status-codes"
 import checkLike from "../helpers/check-like";
-
+import type { UploadFile} from "antd/es/upload/interface";
+import UploadService from "./upload-service";
+import { IImageUpload } from "../interfaces/image-upload-interface";
+import IPhoto from "../models/photo-model";
 
 
 class PostService {
 
     static getAllPost = async (user_id: string)=> {
        try{
+            
             const recordPosts= await neo4j.run(
                 `MATCH (user:User)-[:CONTAIN]->(post:Post)-[:HAS]->(photo:Photo)
                 RETURN user, post, COLLECT(photo) as photos`
@@ -25,7 +29,7 @@ class PostService {
             const posts  = await getList(recordPosts.records,'post');
             const photos = await getList(recordPosts.records,'photos',true);
             const listPostLike = recordLike.records[0].get('liked_post_ids');
- 
+            
             return {
                 type: 'Success',
                 code: StatusCodes.OK,
@@ -47,9 +51,9 @@ class PostService {
        }
     }
 
-    static createPost = async ({user_id, description, images}:IPost)=>{
+    static createPost = async ({user_id, description}:IPost, fileList:UploadFile[])=>{
         try{
-            if (user_id == "" || description== "" || images==null)
+            if (user_id == "" || description== "" || fileList==null)
             {
                 return {
                     type:'Error',
@@ -63,16 +67,14 @@ class PostService {
                 useLetters: true
             });
            
-            if(images)
+            if(fileList)
             {
-                 // generate string Post-[:HAS]-Photo
+                // get url image from clouddinary
+                const uploadImages = await UploadService.uploadImages(fileList) as IImageUpload[];
+                // generate string Post-[:HAS]-Photo
                 let strPhoto: String= "";
-                images.forEach((image,index)=>{
-                    const photo_id :String= generateUniqueId({
-                        length: 32,
-                        useLetters: true
-                    });
-                    strPhoto += `(p${index}:Photo {photo_id:'${photo_id}', source: '${image}', status: 'public'}),
+                uploadImages.forEach((image,index)=>{
+                    strPhoto += `(p${index}:Photo {photo_id:'${image.photo_id}', source: '${image.url}', status: 'public'}),
                     (n)-[:HAS]->(p${index}),`;
                 })
                 const recordPost = await neo4j.run(
@@ -93,23 +95,12 @@ class PostService {
                     type: 'Success',
                     code: 200,
                     message: {
-                        user_id: user.user_id,
-                        firstName: user.firstName,
-                        lastName: user.lastName,
-                        avatar: user.avatar,
-                        post_id: post.post_id,
-                        description: post.description,
-                        countLikes: post.countLikes,
-                        photos: photos
-
+                        user,
+                        post,
+                        photos: photos,
                     }
                 } as IResponse
 
-                return {
-                    type: 'Success',
-                    code: 200,
-                    message: 'Create post successfully'
-                } as IResponse
             }
 
             return {
@@ -125,7 +116,7 @@ class PostService {
         }
     }
 
-    static getPost = async (post_id:String) =>{
+    static getPostByPostId = async (post_id:String) =>{
        try{
             if(post_id == "")
             {
@@ -177,6 +168,75 @@ class PostService {
        }
     }
 
+    static getPostByUserId = async (user_id:string, current_user_id:string) =>{
+        try{
+             if(user_id == "")
+             {
+                 return {
+                     type: 'Error',
+                     code: StatusCodes.BAD_REQUEST,
+                     message: "Invalid post"
+                 } as IResponse
+             }
+ 
+             const recordPost = await neo4j.run(
+                 `MATCH (user:User {user_id:'${user_id}'})
+                 OPTIONAL MATCH (user)-[:CONTAIN]->(post:Post)-[:HAS]->(photo:Photo)
+                 RETURN user, post, COLLECT(photo) as photos`
+             )
+             const recordLike = await neo4j.run(
+                `MATCH (user:User{user_id:"${current_user_id}"})-[:LIKE]->(post:Post)
+                RETURN COLLECT(DISTINCT post.post_id) AS liked_post_ids`
+            )
+            
+            if(recordPost && recordPost.records.length >0)
+            {
+                const user  = await getList(recordPost.records,'user');
+                const listPostLike = recordLike.records[0].get('liked_post_ids');
+                try{
+                    const posts  = await getList(recordPost.records,'post');
+                    const photos = await getList(recordPost.records,'photos',true);
+                    return {
+                        type:'Success',
+                        code: StatusCodes.OK,
+                        message: {
+                            user: user[0],
+                            posts,
+                            photos,
+                            listPostLike
+                        }
+                    } as IResponse
+                }
+                catch(err){
+                    return {
+                        type:'Success',
+                        code: StatusCodes.OK,
+                        message: {
+                            user: user[0],
+                            posts:[],
+                            photos:[],
+                            listPostLike
+                        }
+                    } as IResponse
+                }                   
+            }
+            else {
+                return {
+                    type: 'Error',
+                    code: StatusCodes.BAD_REQUEST,
+                    message: "Post not found"
+                } as IResponse
+            }
+        }
+        catch(err){
+         return {
+             type: 'Error',
+             code: StatusCodes.BAD_REQUEST,
+             message: 'Get a post failed'
+         } as IResponse
+        }
+     }
+
     static updatePost = async () =>{
         throw new Error("Method not implemented.");
     }
@@ -193,11 +253,15 @@ class PostService {
             }
 
             const recordPost = await neo4j.run(
-                `MATCH (post:Post {post_id: "${post_id}"}) DETACH DELETE post RETURN post`
+                `MATCH (post:Post {post_id: "${post_id}"})-[:HAS]->(photo:Photo) DETACH DELETE post RETURN post, photo`
             )
+            
+          
 
             if(recordPost && recordPost.records.length>0)
             {
+                const photos = await getList(recordPost.records,'photo') as IPhoto[];
+                UploadService.removeImages(photos)
                 return {
                     type:'Success',
                     code: StatusCodes.OK,

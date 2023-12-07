@@ -11,6 +11,7 @@ router.get('/following',AuthenMiddleware.authenMiddleware,UserController.getFoll
 router.get('/friends', AuthenMiddleware.authenMiddleware, UserController.getFriend);
 router.post('/follow',AuthenMiddleware.authenMiddleware,UserController.follow);
 router.post('/refresh-access-token',UserController.refreshAccessToken);
+router.put('/', AuthenMiddleware.authenMiddleware, UserController.updateUser);
 router.get('/:token', UserController.getUserByToken)
 
 

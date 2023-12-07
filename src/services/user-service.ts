@@ -8,6 +8,7 @@ import generateUniqueId from "generate-unique-id";
 import {StatusCodes} from "http-status-codes";
 import checkFollow from "../helpers/check-follow";
 import getList from "../helpers/get-list";
+import cloudinary from "../utils/connect-cloudinary";
 
 
 
@@ -221,12 +222,18 @@ class UserService {
     static getFollowing = async (user_id: string)=>{
         try{
 
+            // const recordFollowings = await neo4j.run(
+            //     `MATCH (me:User {user_id: '${user_id}'}) 
+            //     MATCH (me)-[:FOLLOW]->(user) 
+            //     WHERE NOT (user)-[:FOLLOW]->(me) 
+            //     RETURN user`
+            // )
+
             const recordFollowings = await neo4j.run(
-                `MATCH (me:User {user_id: '${user_id}'}) 
-                MATCH (me)-[:FOLLOW]->(user) 
-                WHERE NOT (user)-[:FOLLOW]->(me) 
+                `MATCH (User {user_id: '${user_id}'})-[:FOLLOW]->(user) 
                 RETURN user`
             )
+            
 
             const users  = await getList(recordFollowings.records,'user');
             return {
@@ -252,7 +259,6 @@ class UserService {
                 MATCH (me)-[:FOLLOW]->(user) 
                 RETURN user`
             )
-
             const users  = await getList(recordFollowings.records,'user');
             return {
                 type: 'Success',
@@ -354,6 +360,29 @@ class UserService {
                 code: StatusCodes.BAD_REQUEST,
                 message: "Invalid refresh token"
             }
+        }
+    }
+
+    static updateUser = async (user_id: string, avatar: string)=>{
+        try{
+            // update features delete avatar in cloudinary in the future
+            const resultUploadAvatar = await cloudinary.uploader.upload(avatar);
+            const recordUser = await neo4j.run(`
+                MATCH (user: User{user_id: '${user_id}'}) SET user.avatar = '${resultUploadAvatar.secure_url}' RETURN user
+            `)
+            let user = await getValue(recordUser.records[0], 'user')
+
+            return {
+                type: "Success",
+                code: StatusCodes.OK,
+                message: {
+                    user
+                }
+            }
+
+        }
+        catch(err){
+            throw err;
         }
     }
 

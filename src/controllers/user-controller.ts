@@ -125,6 +125,18 @@ class UserController {
         }
     }
 
+    static updateUser = async (req: UserRequest, res: Response, next: NextFunction)=>{
+        try{
+            const user_id : string = req.user_id ? req.user_id : '';
+            const {avatar} = req.body; 
+            const response = await UserService.updateUser(user_id, avatar);
+            res.status(StatusCodes.OK).json(response)
+        }
+        catch(err){
+            throw err;
+        }
+    }
+
     
 }
 
